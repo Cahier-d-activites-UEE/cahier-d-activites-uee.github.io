@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Espace adulte</title>
+<style>
+:root{--ink:#1d1a24;--muted:#6c6677;--line:#d9d4e0;--page:#f3eff7;--paper:#fff;--purple:#6b0f5e;--ok:#1f9d55;--ko:#d9432f}
+@media (prefers-color-scheme: dark){:root{--ink:#f1ecf7;--muted:#b1a9bd;--line:#443c52;--page:#16121c;--paper:#221d2b;--purple:#e39ad8}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Verdana,sans-serif;padding:max(20px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
+main{max-width:640px;margin:0 auto}
+h1{color:var(--purple);font-size:28px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+.card{background:var(--paper);border-radius:18px;padding:18px 16px;box-shadow:0 6px 20px rgba(40,10,60,.08);margin-bottom:16px}
+.card h2{font-size:18px;margin:0 0 10px}
+input,select{width:100%;font-size:17px;padding:10px 12px;border:2px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);margin:4px 0 10px}
+button{font-size:16px;font-weight:700;padding:11px 16px;border:0;border-radius:12px;background:var(--purple);color:#fff;cursor:pointer}
+button.alt{background:none;color:var(--muted);border:2px solid var(--line)}
+.msg{min-height:1.3em;font-size:15px;margin:8px 0 0}
+.msg.ok{color:var(--ok)}.msg.ko{color:var(--ko)}
+.new{font-size:24px;font-weight:800;letter-spacing:.12em;color:var(--ok)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:8px 4px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:400;font-size:13px}
+td.c{font-weight:700;letter-spacing:.08em;white-space:nowrap}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>Espace adulte</h1>
+<p class="sub">Version de test : création des codes et liste des élèves.</p>
+
+<section class="card" id="login">
+  <h2>Mot de passe adulte</h2>
+  <input type="password" id="pwd" autocomplete="current-password" aria-label="Mot de passe adulte">
+  <button id="ok">Ouvrir</button>
+  <p class="msg" id="lmsg" role="status"></p>
+</section>
+
+<section id="app" hidden>
+  <div class="card">
+    <h2>Nouveau code élève</h2>
+    <label for="lab">Prénom (pour toi)</label>
+    <input id="lab" maxlength="60">
+    <label for="cah">Cahier</label>
+    <input id="cah" value="test" maxlength="60" autocapitalize="none" spellcheck="false">
+    <button id="mk">Créer le code</button>
+    <p class="msg" id="nmsg" role="status"></p>
+  </div>
+  <div class="card">
+    <h2>Élèves</h2>
+    <div id="list">Chargement…</div>
+    <p style="margin:12px 0 0"><button class="alt" id="refresh">Actualiser</button> <button class="alt" id="out">Fermer</button></p>
+  </div>
+</section>
+</main>
+<script>
+const SUPA={url:"https://jfmgsiuiynrklxydtcqb.supabase.co",key:"sb_publishable_X7PoFloBBAlIdHNnY09RXQ_dRRaZjES"};
+async function rpc(fn,args){
+  const r=await fetch(SUPA.url+"/rest/v1/rpc/"+fn,{method:"POST",headers:{apikey:SUPA.key,"Content-Type":"application/json"},body:JSON.stringify(args)});
+  const t=await r.text();let j=null;try{j=t?JSON.parse(t):null}catch(e){}
+  if(!r.ok){const e=new Error((j&&(j.message||j.hint))||("Erreur "+r.status));throw e}
+  return j}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const show=c=>(c||"").replace(/^([A-Z]+)(\d+)$/,"$1-$2");
+let pwd=null;
+async function load(){
+  const r=await rpc("cahier_liste",{p_mdp:pwd});
+  if(r===null){pwd=null;$("app").hidden=true;$("login").hidden=false;$("lmsg").className="msg ko";$("lmsg").textContent="Mot de passe incorrect.";return}
+  const el=r.eleves||[];
+  $("list").innerHTML=el.length?`<table><thead><tr><th>Code</th><th>Élève</th><th>Cahier</th><th>Finies</th></tr></thead><tbody>${el.map(e=>`<tr><td class="c">${esc(show(e.code))}</td><td>${esc(e.label||e.name)}</td><td>${esc(e.cahier)}</td><td>${Object.keys(e.done||{}).length}</td></tr>`).join("")}</tbody></table>`:"<p>Aucun élève pour l'instant.</p>";
+}
+$("ok").onclick=async()=>{pwd=$("pwd").value;if(!pwd)return;$("lmsg").className="msg";$("lmsg").textContent="Vérification…";
+  try{const r=await rpc("cahier_liste",{p_mdp:pwd});
+    if(r===null){$("lmsg").className="msg ko";$("lmsg").textContent="Mot de passe incorrect.";pwd=null;return}
+    $("login").hidden=true;$("app").hidden=false;$("pwd").value="";await load()}
+  catch(e){$("lmsg").className="msg ko";$("lmsg").textContent=/Trop/.test(e.message)?e.message:"Impossible de joindre le serveur ("+e.message+")."}};
+$("pwd").addEventListener("keydown",e=>{if(e.key==="Enter")$("ok").click()});
+$("mk").onclick=async()=>{const cah=$("cah").value.trim().toLowerCase();if(!cah){$("nmsg").className="msg ko";$("nmsg").textContent="Indique un cahier.";return}
+  try{const c=await rpc("cahier_creer_code",{p_mdp:pwd,p_label:$("lab").value.trim(),p_cahier:cah});
+    if(!c){$("nmsg").className="msg ko";$("nmsg").textContent="Mot de passe refusé.";return}
+    $("nmsg").className="msg ok";$("nmsg").innerHTML=`Nouveau code : <span class="new">${esc(show(c))}</span>`;$("lab").value="";await load()}
+  catch(e){$("nmsg").className="msg ko";$("nmsg").textContent="Erreur : "+e.message}};
+$("refresh").onclick=()=>load().catch(()=>{});
+$("out").onclick=()=>{pwd=null;$("app").hidden=true;$("login").hidden=false;$("lmsg").textContent=""};
+</script>
+</body>
+</html>

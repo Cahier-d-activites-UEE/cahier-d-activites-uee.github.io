@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Cahier d'activités</title>
+<style>
+:root{--ink:#1d1a24;--muted:#6c6677;--line:#d9d4e0;--page:#f3eff7;--paper:#fff;--purple:#6b0f5e;--ok:#1f9d55;--ko:#d9432f}
+@media (prefers-color-scheme: dark){:root{--ink:#f1ecf7;--muted:#b1a9bd;--line:#443c52;--page:#16121c;--paper:#221d2b;--purple:#e39ad8}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100vh;min-height:100dvh;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Verdana,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:max(24px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
+h1{margin:0;color:var(--purple);font-size:clamp(32px,9vw,52px);letter-spacing:.04em;text-align:center;line-height:1.1}
+.sub{margin:8px 0 28px;color:var(--muted);text-align:center;letter-spacing:.1em}
+form{width:100%;max-width:420px;background:var(--paper);border-radius:22px;padding:26px 20px;box-shadow:0 10px 30px rgba(40,10,60,.12);text-align:center}
+label{display:block;font-size:18px;margin-bottom:14px}
+input{width:100%;font-size:28px;text-align:center;text-transform:uppercase;letter-spacing:.12em;padding:12px;border:2px solid var(--line);border-radius:14px;background:var(--paper);color:var(--ink)}
+input:focus{outline:none;border-color:var(--purple)}
+input::placeholder{color:var(--line);text-transform:none;letter-spacing:.04em;font-size:22px}
+button{margin-top:16px;width:100%;font-size:20px;font-weight:700;padding:14px;border:0;border-radius:14px;background:var(--purple);color:#fff;cursor:pointer}
+button:disabled{opacity:.6}
+.msg{min-height:1.5em;margin:16px 0 0;font-size:16px}
+.msg.ok{color:var(--ok)}.msg.ko{color:var(--ko)}
+.test{margin-top:22px;font-size:13px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<h1>Cahier d'activités</h1>
+<p class="sub">Page de test</p>
+<form id="f" autocomplete="off">
+  <label for="code">Écris ton code</label>
+  <input id="code" inputmode="text" autocapitalize="characters" spellcheck="false" placeholder="ton code" aria-label="Ton code">
+  <button id="go" type="submit">Entrer</button>
+  <p class="msg" id="msg" role="status"></p>
+</form>
+<p class="test">Version de test : la connexion à la base est vérifiée, les cahiers arriveront ensuite.</p>
+<script>
+const SUPA={url:"https://jfmgsiuiynrklxydtcqb.supabase.co",key:"sb_publishable_X7PoFloBBAlIdHNnY09RXQ_dRRaZjES"};
+async function rpc(fn,args){
+  const r=await fetch(SUPA.url+"/rest/v1/rpc/"+fn,{method:"POST",headers:{apikey:SUPA.key,"Content-Type":"application/json"},body:JSON.stringify(args)});
+  const t=await r.text();let j=null;try{j=t?JSON.parse(t):null}catch(e){}
+  if(!r.ok){const e=new Error((j&&(j.message||j.hint))||("Erreur "+r.status));e.status=r.status;throw e}
+  return j}
+const norm=v=>(v||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+const f=document.getElementById("f"),inp=document.getElementById("code"),msg=document.getElementById("msg"),btn=document.getElementById("go");
+f.addEventListener("submit",async e=>{e.preventDefault();const c=norm(inp.value);
+  if(c.length<4){msg.className="msg ko";msg.textContent="Écris ton code en entier.";return}
+  btn.disabled=true;msg.className="msg";msg.textContent="Vérification…";
+  try{const r=await rpc("cahier_ouvrir",{p_code:c});
+    if(!r){msg.className="msg ko";msg.textContent="Ce code n'existe pas. Vérifie-le ou demande-le à ton enseignant."}
+    else if(!r.html){msg.className="msg ok";msg.textContent="Code reconnu ✓ (cahier « "+r.cahier+" »). Le cahier n'est pas encore en ligne."}
+    else{msg.className="msg ok";msg.textContent="Code reconnu ✓ Le cahier « "+r.cahier+" » est bien en ligne."}}
+  catch(err){msg.className="msg ko";msg.textContent=/Trop/.test(err.message)?err.message:"Impossible de joindre le serveur ("+err.message+")."}
+  finally{btn.disabled=false}});
+</script>
+</body>
+</html>
